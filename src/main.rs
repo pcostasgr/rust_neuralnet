@@ -1028,16 +1028,16 @@ fn main() {
 
     read_mnist_train_labels_file("C:\\Users\\Costas\\Downloads\\training data\\train-labels.idx1-ubyte",& mut label_data);
     read_mnist_train_images_file("C:\\Users\\Costas\\Downloads\\training data\\train-images.idx3-ubyte",& mut image_data);   
-   
+
     let total_size=image_data[0].width*image_data[0].height;
 
     let mut output_data:Vec<f32>=vec![0.0;total_size];
     
     output_data=image_data[0].data.iter_mut().map( |x|  *x as  f32 ).collect();
     let start = Instant::now();
-
+    
     let mut index:usize=0;
-    for i in 0..60000 {
+    for i in 0..image_data.len() {
         index=label_data[i] as usize;
         output_data=image_data[i].data.iter_mut().map( |x|  *x as  f32 ).collect();
         nn.compute_output(&output_data);  
