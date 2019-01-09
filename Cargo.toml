@@ -1,0 +1,8 @@
+[package]
+name = "neural_net"
+version = "0.1.0"
+authors = ["Constantinos Papadopoulos <pcostasgr@gmail.com>"]
+
+[dependencies]
+rand = "0.3.0"
+byteorder = "1.2.7"
