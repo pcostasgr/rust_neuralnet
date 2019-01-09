@@ -998,13 +998,6 @@ pub fn read_data(filename:&str){
 }
 //--------------------------------------------------------------------------------------------------------------------------
 fn main() {
-  
-    
-    //println!("Test");
-    //save_data("nn_data.txt");
-    //read_data("nn_data.txt");
-    //return;
-
     println!("Load Training Data");
 
     let mut label_data:Vec<u8>=vec![0;10];
@@ -1028,12 +1021,11 @@ fn main() {
     //
     let mut nn=NeuralNet::new(784,15,10,0.7);
     nn.init_net();
-    nn.save_to_file("nn_data.txt");
+    //nn.save_to_file("nn_data.txt");
 
     println!("Loading data..................");
-    nn.read_from_file("nn_data.txt");
+    //nn.read_from_file("nn_data.txt");
 
-    return;
     read_mnist_train_labels_file("C:\\Users\\Costas\\Downloads\\training data\\train-labels.idx1-ubyte",& mut label_data);
     read_mnist_train_images_file("C:\\Users\\Costas\\Downloads\\training data\\train-images.idx3-ubyte",& mut image_data);   
    
@@ -1045,16 +1037,11 @@ fn main() {
     let start = Instant::now();
 
     let mut index:usize=0;
-    for i in 0..1000 {
-;
+    for i in 0..60000 {
         index=label_data[i] as usize;
         output_data=image_data[i].data.iter_mut().map( |x|  *x as  f32 ).collect();
-        
-  //      println!("item:{} index:{}==================================================================================================",i,index);
-
         nn.compute_output(&output_data);  
         nn.learn(&actual_labels[index]);
-//        println!("output {:?}",nn.Y.data);
     }
     
     nn.save_to_file("nn_data.txt");
@@ -1063,9 +1050,4 @@ fn main() {
     let duration = start.elapsed();
     println!("Time elapsed in expensive_function() is: {:?}", duration );
 
-    //println!("output {:?}",nn.Y.data)
-
-    //println!("Image !!!");
-    //image_data[2].debug_matrix();
-    //println!("Data loaded!");
 }
