@@ -721,6 +721,18 @@ pub fn sigmoid_deriv(value:f32)->f32 {
 
     result
 }
+//-------------------------------------------------------------------------------------------------------------------------
+pub fn step_function(x:f32)->f32 {
+
+    if x>0.9 {
+        return 1.0;
+    }
+
+    if x<0.1{
+        return 0.0;
+    }
+    return x;
+}
 //--------------------------------------------------------------------------------------------------------------------------
 pub fn as_u32_be(array: &[u8; 4]) -> u32 {
     ((array[0] as u32) << 24) +
@@ -734,11 +746,6 @@ pub fn as_u32_le(array: &[u8; 4]) -> u32 {
     ((array[1] as u32) <<  8) +
     ((array[2] as u32) << 16) +
     ((array[3] as u32) << 24)
-}
-
-//--------------------------------------------------------------------------------------------------------------------------
-pub fn some_func(v: f32)->f32 {
-    3.0
 }
 //--------------------------------------------------------------------------------------------------------------------------
 pub fn read_mnist_train_labels_file(filename:&str,label_data:&mut Vec<u8>)->io::Result<()>{ 
@@ -821,183 +828,13 @@ pub fn read_mnist_train_images_file(filename:&str,image_data:& mut Vec<ImData>)-
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-pub fn test_stuff(){
-       
-    let width:usize=2;
-    let height:usize=3;
-
-    let mut m1=Matrix{
-        width:3,
-        height:2,
-        data:vec![0.0;6]
-    };
-   
-    let size_=m1.data.len();
-    println!("size:{} ",size_);
-    
-    let mut m2=Matrix{
-        width:2,
-        height:3,
-        data:vec![0.0;6]
-    };
-
-    let mut m3=Matrix{
-        width:2,
-        height:2,
-        data:vec![0.0;4]
-    };
-    
-    let mut m4=Matrix{
-        width:2,
-        height:3,
-        data:vec![0.0;6]
-    };
-
-    let mut m5=Matrix{
-        width:2,
-        height:2,
-        data:vec![1.0;6]
-    };
-
-
-    let mut m6=Matrix{
-        width:2,
-        height:2,
-        data:vec![1.0;6]
-    };
-
-
-   m1.data[0]=1.0;
-   m1.data[1]=2.0;
-   m1.data[2]=3.0;
-
-   m1.data[3]=4.0;
-   m1.data[4]=5.0;
-   m1.data[5]=6.0; 
-
-   m2.data[0]=7.0;
-   m2.data[1]=8.0;
-   m2.data[2]=9.0;
-
-   m2.data[3]=10.0;
-   m2.data[4]=11.0;
-   m2.data[5]=12.0;
-   
-   println!("m1");
-    debug_matrix(& m1); 
-
-    println!("m2");
-    debug_matrix(& m2);
-
-    println!("multiply");
-    m3=mul_matrices(& m1,& m2);
-    debug_matrix(& m3);
-
-
-    println!("debug m5");
-  //  m5.debug_matrix();
-
-    m6=add_matrices(&m5,&m3);
-    println!("debug m6");
-    //m6.debug_matrix();
-    
-    println!("transpose");
-    m4=transpose_matrix(&m1);
-    debug_matrix(& m4);
-    
-    println!("test map");
-
-    let mut my_data=vec![1.0,2.0,3.0];
-
-    let mut rng=rand::thread_rng();
-
-    let mut v:Vec<f32>=my_data.iter().map( |x| rng.gen_range(0.0,1.0) ).collect();
-    
-    v.iter_mut().for_each( |x| *x=some_func(*x) );
-
-    let mut new_v=vec![1.0,2.0,3.0,4.0];
-    new_v=v.clone();
-    new_v[0]=10.0;
-
-    new_v.clear();
-    new_v.resize(2,6.0);
-    println!("{:?} ",v);
-    println!("{:?}",new_v);
-   // debug_matrix(& m4);    
-
-}
-
-pub fn add_two(x:i32)->i32 {
-    x+2
-}
-//--------------------------------------------------------------------------------------------------------------------------
 fn to_byte_slice_f32<'a>(floats: &'a [f32],size:usize) -> &'a [u8] {
     unsafe {
         std::slice::from_raw_parts(floats.as_ptr() as *const _, floats.len() * size)
     }
 }
 //--------------------------------------------------------------------------------------------------------------------------
- pub fn save_data(filename:&str){
-
-     let mut f=match OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(filename){
-                    Ok(file)=> file,
-                    Err(..) => panic!("Error reading file:{}",filename)
-        
-            };
-    
-
-    let vf:Vec<f32>=vec![1.1,2.2,3.3,4.4,5.5,6.6];
-    let vu=to_byte_slice_f32(&vf,4);
-
-    println!("slice : {:?}",vu);
-    
-    let mut ib:[u8;4]=[0;4];
-    LittleEndian::write_u32(& mut ib,100);
-    f.write(&ib);
-
-    LittleEndian::write_u32(& mut ib,200);;
-    f.write(&ib);
-
-    f.write(&vu);
-    
- 
-
- }
-//-------------------------------------------------------------------------------------------------------------------------
-pub fn read_data(filename:&str){
-        let mut f=match OpenOptions::new()
-            .read(true)
-            .open(filename){
-                    Ok(file)=> file,
-                    Err(..) => panic!("Error reading file:{}",filename)
-        
-            };
-     
-    let mut ibuffer:[u8;4]=[0;4];
-    let mut value:u32=0;
-
-    f.read(& mut ibuffer);
-    value=LittleEndian::read_u32(&ibuffer);
-    println!("value1:{}",value);
-    f.read(& mut ibuffer);
-    value=LittleEndian::read_u32(&ibuffer);
-    println!("value2:{}",value);
-
-
-     let mut vu2:[u8;24]=[0;24];
-     f.read(& mut vu2);
-     println!("raw u8: {:?}",vu2);
-    
-    let mut numbers_got:[f32;6] = [0.0; 6];
-    LittleEndian::read_f32_into_unchecked(&vu2, &mut numbers_got);
-    println!("Data read array f32: {:?}",numbers_got);
-}
-//--------------------------------------------------------------------------------------------------------------------------
-fn main() {
+pub fn training_data(){
     println!("Load Training Data");
 
     let mut label_data:Vec<u8>=vec![0;10];
@@ -1048,6 +885,67 @@ fn main() {
     
 
     let duration = start.elapsed();
-    println!("Time elapsed in expensive_function() is: {:?}", duration );
+    println!("Time elapsed training  is: {:?}", duration );
 
+
+}
+//-------------------------------------------------------------------------------------------------------------------------
+pub fn compute_data(){
+    //do something here
+    let mut label_data:Vec<u8>=vec![0;10];
+    let mut image_data:Vec<ImData>=Vec::new();
+    let mut actual_labels:Vec<Vec<f32>>=Vec::new();
+    
+    //Init true label data
+    for i in 0..10 {
+        actual_labels.push(
+                vec![0.0;10]
+            );
+        actual_labels[i]=vec![0.0;10];
+        actual_labels[i][i]=1.0;
+    }
+    
+     // 28*28=784 input neurons (images are 28*28 pixels)
+    // 15 hidden neurons (experimental)
+    // 10 output neurons (for each image output is a vector of size 10, full of zeros and a 1 at the index of the number represented)
+    // 0.7 learning rate (experimental)
+    let mut nn=NeuralNet::new(784,15,10,0.7);
+    nn.init_net();
+    nn.read_from_file("nn_data.txt");
+
+    println!("Loading data..................");
+
+    read_mnist_train_labels_file("C:\\Users\\Costas\\Downloads\\training data\\t10k-labels.idx1-ubyte",& mut label_data);
+    read_mnist_train_images_file("C:\\Users\\Costas\\Downloads\\training data\\t10k-images.idx3-ubyte",& mut image_data);   
+
+    let total_size=image_data[0].width*image_data[0].height;
+
+    let mut output_data:Vec<f32>=vec![0.0;total_size];
+
+    let start = Instant::now();
+    
+    let mut v:Vec<f32>;
+
+    let mut index:usize=0;
+    for i in 0..image_data.len() {
+        index=label_data[i] as usize;
+        output_data=image_data[i].data.iter_mut().map( |x|  *x as  f32 ).collect();
+        nn.compute_output(&output_data); 
+        v=nn.Y.data.iter().map( |x| step_function(*x) ).collect();
+        println!("{} index {}",i,index);
+        println!("{:?}",v);
+
+    }
+     
+    
+
+    let duration = start.elapsed();
+    println!("Time elapsed compute is: {:?}", duration );
+
+}
+//--------------------------------------------------------------------------------------------------------------------------
+fn main() {
+    //training_data();
+    println!("Conpute Data");
+    compute_data();
 }
