@@ -418,13 +418,6 @@ impl NeuralNet {
 
         mul_matrices_val(&YT,&HW2B2,& mut dJdB2);
 
-//----------------------------------------------------------------------------------------------------------------------        
-        //println!("dJdB2");
-        //dJdB2.debug_matrix();
-
-        //println!("H");
-        //self.H.debug_matrix();
-//----------------------------------------------------------------------------------------------------------------------        
         
         let mut W2T=transpose_matrix(&self.W2);
 
@@ -437,28 +430,25 @@ impl NeuralNet {
 
         mul_matrices_val(&dJdB2W2T,&XW1B1,& mut dJdB1);
 
-        //first occerence of NAN due to hgh values in dJdB1
-;
         let mut HT=transpose_matrix(&self.H);
         let mut XT=transpose_matrix(&self.X);
         
-        //dJdB1 is NAN from second iteration
-        //
         dJdW2=mul_matrices(&HT,&dJdB2);
         dJdW1=mul_matrices(&XT,&dJdB1);
 
+        dJdB1.mul_matrix_scalar(self.learning_rate);
+        dJdB2.mul_matrix_scalar(self.learning_rate);
+
+        dJdW1.mul_matrix_scalar(self.learning_rate);
+        dJdW2.mul_matrix_scalar(self.learning_rate);
 
         let mut NW1=sub_matrices(&self.W1,&dJdW1);
-        NW1.mul_matrix_scalar(self.learning_rate);
 
         let mut NW2=sub_matrices(&self.W2,&dJdW2);
-        NW2.mul_matrix_scalar(self.learning_rate);
 
         let mut NB1=sub_matrices(&self.B1,&dJdB1);
-        NB1.mul_matrix_scalar(self.learning_rate);
 
         let mut NB2=sub_matrices(&self.B2,&dJdB2);
-        NB2.mul_matrix_scalar(self.learning_rate);
 
         self.W1.data.clear();
         self.W1.data=NW1.data.clone();
@@ -602,48 +592,6 @@ pub fn transpose_matrix(m1:& Matrix)->Matrix{
         data:data.clone()
     }
 
-}
-//--------------------------------------------------------------------------------------------------------------------------
-pub fn mul_matrices_old(m1:& Matrix,m2:& Matrix, m:&mut Matrix ) {
-                                            
-    let width:usize=m.width;
-    let height:usize=m.height;
-    let mut index:usize=0;
-
-    if m1.width != m2.height  {
-        panic!("mul_matrices -> Matrices are not of the same dimensions");
-    }
-
-    if m1.height != m.height || m2.width!= m.width {
-        panic!("mul_matrices -> Result Matrix does not have same dimensions as the inputs");
-    }
-
-    let mut value:f32=0.0;
-
-    let mut index1:usize=0;
-    let mut index2:usize=0;
-
-    for y in 0..height {
-        for x in 0..width {
-            
-            value=0.0;
-            //println!("y:{ } x:{ } ",y,x);
-            for z in 0..m1.width {
-
-                index1=y*m1.width+z;
-                index2=z*m2.width+x;
-                
-               // println!("z:{ } a[{ }][{ }] i1:{ } b[{ }][{ }] i2:{ }",
-                 //       z,y,z,index1,z,y,index2);
-
-                value+=m1.data[index1]*m2.data[index2];
-            }
-
-            index=width*y+x;
-            m.data[index]=value;
-        }
-    }
-   
 }
 //---------------------------------------------------------------------------------------------------------------------------------------------
 pub fn mul_matrices(m1:& Matrix,m2:& Matrix)-> Matrix {
@@ -870,28 +818,51 @@ pub fn training_data(){
 
     let mut output_data:Vec<f32>=vec![0.0;total_size];
     
-    output_data=image_data[0].data.iter_mut().map( |x|  *x as  f32 ).collect();
     let start = Instant::now();
     
     let mut index:usize=0;
-    for i in 0..image_data.len() {
+    let mut data_len=image_data.len();
+    data_len=5000;
+
+    for i in 0..data_len {
         index=label_data[i] as usize;
         output_data=image_data[i].data.iter_mut().map( |x|  *x as  f32 ).collect();
         nn.compute_output(&output_data);  
+        println!("tr {} index {} {:?}",i,index,nn.Y.data);
         nn.learn(&actual_labels[index]);
     }
     
-    nn.save_to_file("nn_data.txt");
+  //  nn.save_to_file("nn_data.txt");
+    
     
 
     let duration = start.elapsed();
     println!("Time elapsed training  is: {:?}", duration );
+    
+    let mut test_label_data:Vec<u8>=vec![0;10];
+    let mut test_image_data:Vec<ImData>=Vec::new();
+    read_mnist_train_labels_file("C:\\Users\\Costas\\Downloads\\training data\\t10k-labels.idx1-ubyte",& mut test_label_data);
+    read_mnist_train_images_file("C:\\Users\\Costas\\Downloads\\training data\\t10k-images.idx3-ubyte",& mut test_image_data);   
+
+    let mut v:Vec<f32>;
+    let mut test_data_len=test_image_data.len();
+    test_data_len=100;
+
+    for i in 0..test_data_len {
+        index=test_label_data[i] as usize;
+        output_data=test_image_data[i].data.iter_mut().map( |x|  *x as  f32 ).collect();
+        nn.compute_output(&output_data); 
+        v=nn.Y.data.iter().map( |x| step_function(*x) ).collect();
+        println!("{} index {} {:?}",i,index,v);
+
+    }
 
 
 }
-//-------------------------------------------------------------------------------------------------------------------------
-pub fn compute_data(){
-    //do something here
+//--------------------------------------------------------------------------------------------------------------------------
+pub fn training_data_test(){
+    println!("Load Training Data Debug");
+
     let mut label_data:Vec<u8>=vec![0;10];
     let mut image_data:Vec<ImData>=Vec::new();
     let mut actual_labels:Vec<Vec<f32>>=Vec::new();
@@ -904,6 +875,55 @@ pub fn compute_data(){
         actual_labels[i]=vec![0.0;10];
         actual_labels[i][i]=1.0;
     }
+    
+     // 28*28=784 input neurons (images are 28*28 pixels)
+    // 15 hidden neurons (experimental)
+    // 10 output neurons (for each image output is a vector of size 10, full of zeros and a 1 at the index of the number represented)
+    // 0.7 learning rate (experimental)
+    //
+    //
+    let mut nn=NeuralNet::new(784,15,10,0.7);
+    nn.init_net();
+
+  //  nn.W1.debug_matrix("W1");
+  //  nn.W2.debug_matrix("W2");
+  //  nn.B1.debug_matrix("B1");
+  //  nn.B2.debug_matrix("B2");    
+   // return;
+    //nn.save_to_file("nn_data.txt");
+
+    println!("Loading data..................");
+    //nn.read_from_file("nn_data.txt");
+
+    read_mnist_train_labels_file("C:\\Users\\Costas\\Downloads\\training data\\train-labels.idx1-ubyte",& mut label_data);
+    read_mnist_train_images_file("C:\\Users\\Costas\\Downloads\\training data\\train-images.idx3-ubyte",& mut image_data);   
+
+    let total_size=image_data[0].width*image_data[0].height;
+
+    let mut output_data:Vec<f32>=vec![0.0;total_size];
+    
+    output_data=image_data[0].data.iter_mut().map( |x|  *x as  f32 ).collect();
+    let start = Instant::now();
+    
+    let mut index:usize=0;
+    for i in 0..image_data.len() {
+        index=label_data[i] as usize;
+        output_data=image_data[i].data.iter_mut().map( |x|  *x as  f32 ).collect();
+
+        println!("index:{}",index);
+        let im=Matrix::new2(28,28,&output_data);
+        im.debug_matrix("im");
+
+        //nn.compute_output(&output_data);  
+        //nn.learn(&actual_labels[index]);
+    }
+
+}
+//-------------------------------------------------------------------------------------------------------------------------
+pub fn compute_data(){
+    //do something here
+    let mut label_data:Vec<u8>=vec![0;10];
+    let mut image_data:Vec<ImData>=Vec::new();
     
      // 28*28=784 input neurons (images are 28*28 pixels)
     // 15 hidden neurons (experimental)
@@ -932,20 +952,57 @@ pub fn compute_data(){
         output_data=image_data[i].data.iter_mut().map( |x|  *x as  f32 ).collect();
         nn.compute_output(&output_data); 
         v=nn.Y.data.iter().map( |x| step_function(*x) ).collect();
-        println!("{} index {}",i,index);
-        println!("{:?}",v);
+        println!("{} index {} {:?}",i,index,v);
 
     }
-     
-    
 
     let duration = start.elapsed();
     println!("Time elapsed compute is: {:?}", duration );
 
 }
+//-------------------------------------------------------------------------------------------------------------------------
+pub fn test_stuff(){
+
+    let mut nn=NeuralNet::new(5,10,5,0.7);
+    nn.init_net();
+
+    let input=vec![0.0,0.0,1.0,0.0,0.0];
+    let input1=vec![2.0,0.0,8.0,0.0,0.0];
+    let input2=vec![3.0,4.0,0.3,0.0,9.0];
+    let output=vec![0.0,0.0,1.0,0.0,0.0];
+
+
+    /*println!("X:{:?}",nn.X.data);
+    println!("H:{:?}",nn.H.data);
+    println!("W1 {} :{:?}",nn.W1.data.len(),nn.W1.data);
+    println!("W2 {} :{:?}",nn.W2.data.len(),nn.W2.data);
+    println!("B1 {} :{:?}",nn.B1.data.len(),nn.B1.data);
+    println!("B2 {} :{:?}",nn.B2.data.len(),nn.B2.data);
+*/
+
+    
+    for i in 0..10000 {
+        nn.compute_output(&input);
+        nn.learn(&output);
+
+        //nn.Y.data.iter_mut().for_each( |x| *x= step_function(*x));
+        //println!("{} output:{:?}",i,nn.Y.data);
+    }
+
+    println!("output:{:?}",nn.Y.data);
+    nn.compute_output(&input2);
+    println!("final2 output:{:?}",nn.Y.data);
+    nn.compute_output(&input);
+    println!("final output:{:?}",nn.Y.data);
+    nn.compute_output(&input1);
+    println!("final1 output:{:?}",nn.Y.data);
+
+}
 //--------------------------------------------------------------------------------------------------------------------------
 fn main() {
+    test_stuff();
     //training_data();
-    println!("Conpute Data");
-    compute_data();
+    //training_data_test();
+  //  println!("Conpute Data");
+  // compute_data();
 }
