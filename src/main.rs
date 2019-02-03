@@ -141,10 +141,10 @@ impl NeuralNet {
         
         let mut rng=rand::thread_rng();
 
-        self.W1.data=self.W1.data.iter_mut().map( |x| rng.gen_range(0.0,1.0) ).collect();
-        self.W2.data=self.W2.data.iter_mut().map( |x| rng.gen_range(0.0,1.0) ).collect();
-        self.B1.data=self.B1.data.iter_mut().map( |x| rng.gen_range(0.0,1.0) ).collect();
-        self.B2.data=self.B2.data.iter_mut().map( |x| rng.gen_range(0.0,1.0) ).collect();
+        self.W1.data=self.W1.data.iter_mut().map( |x| rng.gen_range(0.0,1.0)-0.5 ).collect();
+        self.W2.data=self.W2.data.iter_mut().map( |x| rng.gen_range(0.0,1.0)-0.5 ).collect();
+        self.B1.data=self.B1.data.iter_mut().map( |x| rng.gen_range(0.0,1.0)-0.5 ).collect();
+        self.B2.data=self.B2.data.iter_mut().map( |x| rng.gen_range(0.0,1.0)-0.5 ).collect();
         
     }
 //--------------------------------------------------------------------------------------------------------------------------
@@ -383,7 +383,11 @@ impl NeuralNet {
     }
 //------------------------------------------------------------------------------------------------------------------------
     pub fn compute_output(&mut self,v:&Vec<f32>) {
-        self.X.data=v.to_vec();
+        
+        self.X.data.clear();
+        self.X.data=v.clone();
+        
+        
 
         let mut m1=mul_matrices(&self.X,&self.W1);
 
@@ -398,6 +402,36 @@ impl NeuralNet {
         self.Y.data.iter_mut().for_each( |x| *x= sigmoid(*x));
 
     }
+    //------------------------------------------------------------------------------------------------------------------------
+    pub fn compute_output_debug(&mut self,v:&Vec<f32>) {
+        
+        self.X.data.clear();
+        self.X.data=v.clone();
+        
+        //self.X.debug_matrix("X");
+        //self.W1.debug_matrix("W1");
+
+        let mut m1=mul_matrices(&self.X,&self.W1);
+        
+        //m1.debug_matrix("M1");
+
+        self.H=add_matrices(&m1,&self.B1);
+        
+        self.H.debug_matrix("H");
+
+        self.H.data.iter_mut().for_each( |x| *x= sigmoid(*x));
+        self.H.debug_matrix("H2");
+        
+
+        let mut m2=mul_matrices(&self.H,&self.W2);
+        
+        //m2.debug_matrix("M2");
+
+        self.Y=add_matrices(&m2,&self.B2);
+
+        self.Y.data.iter_mut().for_each( |x| *x= sigmoid(*x));
+    }
+    
 //------------------------------------------------------------------------------------------------------------------------
     pub fn learn(&mut self,input:&Vec<f32>) {
         
@@ -681,6 +715,18 @@ pub fn step_function(x:f32)->f32 {
     }
     return x;
 }
+//-------------------------------------------------------------------------------------------------------------------------
+pub fn step_function2(x:f32)->f32 {
+
+    if x>=127.0 {
+        return 1.0;
+    }
+
+    if x<127.0{
+        return 0.0;
+    }
+    return x;
+}
 //--------------------------------------------------------------------------------------------------------------------------
 pub fn as_u32_be(array: &[u8; 4]) -> u32 {
     ((array[0] as u32) << 24) +
@@ -782,13 +828,18 @@ fn to_byte_slice_f32<'a>(floats: &'a [f32],size:usize) -> &'a [u8] {
     }
 }
 //--------------------------------------------------------------------------------------------------------------------------
-pub fn training_data(){
+pub fn training_data(use_compute:bool,iterations:i32,taining_samples:usize,output_samples:usize){
     println!("Load Training Data");
 
     let mut label_data:Vec<u8>=vec![0;10];
     let mut image_data:Vec<ImData>=Vec::new();
     let mut actual_labels:Vec<Vec<f32>>=Vec::new();
     
+    if iterations<1 {
+        println!("Aborting wrong number of iterations <=0 !!!");
+        return;
+    }
+
     //Init true label data
     for i in 0..10 {
         actual_labels.push(
@@ -804,7 +855,7 @@ pub fn training_data(){
     // 0.7 learning rate (experimental)
     //
     //
-    let mut nn=NeuralNet::new(784,15,10,0.7);
+    let mut nn=NeuralNet::new(784,8,10,0.4);
     nn.init_net();
     //nn.save_to_file("nn_data.txt");
 
@@ -822,101 +873,58 @@ pub fn training_data(){
     
     let mut index:usize=0;
     let mut data_len=image_data.len();
-    data_len=5000;
 
-    for i in 0..data_len {
-        index=label_data[i] as usize;
-        output_data=image_data[i].data.iter_mut().map( |x|  *x as  f32 ).collect();
-        nn.compute_output(&output_data);  
-        println!("tr {} index {} {:?}",i,index,nn.Y.data);
-        nn.learn(&actual_labels[index]);
+    if taining_samples>0 && taining_samples<data_len {
+        data_len=taining_samples;
     }
-    
+
+    for j in 0..iterations {
+
+        println!("Iteration {}/{} ",j+1,iterations);
+        for i in 0..data_len {
+            index=label_data[i] as usize;
+            output_data=image_data[i].data.iter_mut().map( |x|  step_function2(*x as  f32)).collect();
+            nn.compute_output(&output_data);  
+            nn.learn(&actual_labels[index]);
+            
+            /*if j==iterations-1 {
+                println!("{} index {} {:?}",i,index,nn.Y.data);
+            }*/
+        }
+    }
   //  nn.save_to_file("nn_data.txt");
     
-    
+ 
 
     let duration = start.elapsed();
     println!("Time elapsed training  is: {:?}", duration );
     
+    if use_compute==false {
+        return;
+    }
+
     let mut test_label_data:Vec<u8>=vec![0;10];
     let mut test_image_data:Vec<ImData>=Vec::new();
     read_mnist_train_labels_file("C:\\Users\\Costas\\Downloads\\training data\\t10k-labels.idx1-ubyte",& mut test_label_data);
     read_mnist_train_images_file("C:\\Users\\Costas\\Downloads\\training data\\t10k-images.idx3-ubyte",& mut test_image_data);   
 
+    
     let mut v:Vec<f32>;
     let mut test_data_len=test_image_data.len();
-    test_data_len=100;
+
+    if output_samples>0 && output_samples<test_data_len {
+        test_data_len=output_samples;
+    }
 
     for i in 0..test_data_len {
         index=test_label_data[i] as usize;
-        output_data=test_image_data[i].data.iter_mut().map( |x|  *x as  f32 ).collect();
+        output_data=test_image_data[i].data.iter_mut().map( |x|  step_function2(*x as  f32) ).collect();
         nn.compute_output(&output_data); 
         v=nn.Y.data.iter().map( |x| step_function(*x) ).collect();
         println!("{} index {} {:?}",i,index,v);
 
     }
 
-
-}
-//--------------------------------------------------------------------------------------------------------------------------
-pub fn training_data_test(){
-    println!("Load Training Data Debug");
-
-    let mut label_data:Vec<u8>=vec![0;10];
-    let mut image_data:Vec<ImData>=Vec::new();
-    let mut actual_labels:Vec<Vec<f32>>=Vec::new();
-    
-    //Init true label data
-    for i in 0..10 {
-        actual_labels.push(
-                vec![0.0;10]
-            );
-        actual_labels[i]=vec![0.0;10];
-        actual_labels[i][i]=1.0;
-    }
-    
-     // 28*28=784 input neurons (images are 28*28 pixels)
-    // 15 hidden neurons (experimental)
-    // 10 output neurons (for each image output is a vector of size 10, full of zeros and a 1 at the index of the number represented)
-    // 0.7 learning rate (experimental)
-    //
-    //
-    let mut nn=NeuralNet::new(784,15,10,0.7);
-    nn.init_net();
-
-  //  nn.W1.debug_matrix("W1");
-  //  nn.W2.debug_matrix("W2");
-  //  nn.B1.debug_matrix("B1");
-  //  nn.B2.debug_matrix("B2");    
-   // return;
-    //nn.save_to_file("nn_data.txt");
-
-    println!("Loading data..................");
-    //nn.read_from_file("nn_data.txt");
-
-    read_mnist_train_labels_file("C:\\Users\\Costas\\Downloads\\training data\\train-labels.idx1-ubyte",& mut label_data);
-    read_mnist_train_images_file("C:\\Users\\Costas\\Downloads\\training data\\train-images.idx3-ubyte",& mut image_data);   
-
-    let total_size=image_data[0].width*image_data[0].height;
-
-    let mut output_data:Vec<f32>=vec![0.0;total_size];
-    
-    output_data=image_data[0].data.iter_mut().map( |x|  *x as  f32 ).collect();
-    let start = Instant::now();
-    
-    let mut index:usize=0;
-    for i in 0..image_data.len() {
-        index=label_data[i] as usize;
-        output_data=image_data[i].data.iter_mut().map( |x|  *x as  f32 ).collect();
-
-        println!("index:{}",index);
-        let im=Matrix::new2(28,28,&output_data);
-        im.debug_matrix("im");
-
-        //nn.compute_output(&output_data);  
-        //nn.learn(&actual_labels[index]);
-    }
 
 }
 //-------------------------------------------------------------------------------------------------------------------------
@@ -960,49 +968,8 @@ pub fn compute_data(){
     println!("Time elapsed compute is: {:?}", duration );
 
 }
-//-------------------------------------------------------------------------------------------------------------------------
-pub fn test_stuff(){
 
-    let mut nn=NeuralNet::new(5,10,5,0.7);
-    nn.init_net();
-
-    let input=vec![0.0,0.0,1.0,0.0,0.0];
-    let input1=vec![2.0,0.0,8.0,0.0,0.0];
-    let input2=vec![3.0,4.0,0.3,0.0,9.0];
-    let output=vec![0.0,0.0,1.0,0.0,0.0];
-
-
-    /*println!("X:{:?}",nn.X.data);
-    println!("H:{:?}",nn.H.data);
-    println!("W1 {} :{:?}",nn.W1.data.len(),nn.W1.data);
-    println!("W2 {} :{:?}",nn.W2.data.len(),nn.W2.data);
-    println!("B1 {} :{:?}",nn.B1.data.len(),nn.B1.data);
-    println!("B2 {} :{:?}",nn.B2.data.len(),nn.B2.data);
-*/
-
-    
-    for i in 0..10000 {
-        nn.compute_output(&input);
-        nn.learn(&output);
-
-        //nn.Y.data.iter_mut().for_each( |x| *x= step_function(*x));
-        //println!("{} output:{:?}",i,nn.Y.data);
-    }
-
-    println!("output:{:?}",nn.Y.data);
-    nn.compute_output(&input2);
-    println!("final2 output:{:?}",nn.Y.data);
-    nn.compute_output(&input);
-    println!("final output:{:?}",nn.Y.data);
-    nn.compute_output(&input1);
-    println!("final1 output:{:?}",nn.Y.data);
-
-}
 //--------------------------------------------------------------------------------------------------------------------------
 fn main() {
-    test_stuff();
-    //training_data();
-    //training_data_test();
-  //  println!("Conpute Data");
-  // compute_data();
+    training_data(true,30,1000,1000);
 }
